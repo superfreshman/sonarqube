@@ -481,6 +481,40 @@ public class UserDaoTest {
     assertThat(underTest.doesEmailExist(session, "unknown")).isFalse();
   }
 
+  @Test
+  public void setRoot_does_not_fail_on_non_existing_login() {
+    underTest.setRoot(session, "unkown", true);
+    underTest.setRoot(session, "unkown", false);
+  }
+
+  @Test
+  public void setRoot_set_root_flag_of_specified_user_to_specified_value() {
+    String login = newActiveUser().getLogin();
+    String otherLogin = newActiveUser().getLogin();
+    assertThat(underTest.selectByLogin(session, login).isRoot()).isFalse();
+    assertThat(underTest.selectByLogin(session, otherLogin).isRoot()).isFalse();
+
+    // does not fail when changing to same value
+    underTest.setRoot(session, login, false);
+    assertThat(underTest.selectByLogin(session, login).isRoot()).isFalse();
+    assertThat(underTest.selectByLogin(session, otherLogin).isRoot()).isFalse();
+
+    // change value
+    underTest.setRoot(session, login, true);
+    assertThat(underTest.selectByLogin(session, login).isRoot()).isTrue();
+    assertThat(underTest.selectByLogin(session, otherLogin).isRoot()).isFalse();
+
+    // does not fail when changing to same value
+    underTest.setRoot(session, login, true);
+    assertThat(underTest.selectByLogin(session, login).isRoot()).isTrue();
+    assertThat(underTest.selectByLogin(session, otherLogin).isRoot()).isFalse();
+
+    // change value back
+    underTest.setRoot(session, login, false);
+    assertThat(underTest.selectByLogin(session, login).isRoot()).isFalse();
+    assertThat(underTest.selectByLogin(session, otherLogin).isRoot()).isFalse();
+  }
+
   private UserDto newActiveUser() {
     return insertUser(true);
   }
