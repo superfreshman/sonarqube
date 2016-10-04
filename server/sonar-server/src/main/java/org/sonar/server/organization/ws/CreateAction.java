@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 import org.sonar.api.server.ws.Request;
 import org.sonar.api.server.ws.Response;
 import org.sonar.api.server.ws.WebService;
-import org.sonar.core.permission.GlobalPermissions;
 import org.sonar.core.util.UuidFactory;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
@@ -81,7 +80,7 @@ public class CreateAction implements OrganizationsAction {
 
   @Override
   public void handle(Request request, Response response) throws Exception {
-    userSession.checkPermission(GlobalPermissions.SYSTEM_ADMIN);
+    userSession.checkIsRoot();
 
     String name = wsSupport.getAndCheckName(request);
     String requestKey = getAndCheckKey(request);

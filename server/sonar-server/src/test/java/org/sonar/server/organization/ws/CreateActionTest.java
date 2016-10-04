@@ -28,7 +28,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.sonar.api.server.ws.WebService;
 import org.sonar.api.utils.System2;
-import org.sonar.core.permission.GlobalPermissions;
 import org.sonar.core.util.UuidFactory;
 import org.sonar.core.util.Uuids;
 import org.sonar.db.DbTester;
@@ -100,7 +99,7 @@ public class CreateActionTest {
 
   @Test
   public void verify_response_example() throws URISyntaxException, IOException {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(Uuids.UUID_EXAMPLE_01, SOME_DATE);
 
     String response = executeJsonRequest("Foo Company", "foo-company", "The Foo company produces quality software for Bar.", "https://www.foo.com", "https://www.foo.com/foo.png");
@@ -109,7 +108,17 @@ public class CreateActionTest {
   }
 
   @Test
-  public void request_fails_if_user_does_not_have_SYSTEM_ADMIN_permission() {
+  public void request_fails_if_user_is_not_authenticated() {
+    expectedException.expect(ForbiddenException.class);
+    expectedException.expectMessage("Insufficient privileges");
+
+    executeRequest("name");
+  }
+
+  @Test
+  public void request_fails_if_user_is_not_root() {
+    userSession.login();
+
     expectedException.expect(ForbiddenException.class);
     expectedException.expectMessage("Insufficient privileges");
 
@@ -118,7 +127,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_name_param_is_missing() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("The 'name' parameter is missing");
@@ -128,7 +137,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_name_is_one_char_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("Name 'a' must be at least 2 chars long");
@@ -138,7 +147,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_name_is_two_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     verifyResponseAndDb(executeRequest("ab"), SOME_UUID, "ab", "ab", SOME_DATE);
@@ -146,7 +155,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_name_is_65_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("Name '" + STRING_65_CHARS_LONG + "' must be at most 64 chars long");
@@ -156,7 +165,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_name_is_64_char_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     String name = STRING_65_CHARS_LONG.substring(0, 64);
@@ -166,7 +175,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_key_one_char_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("Key 'a' must be at least 2 chars long");
@@ -176,7 +185,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_key_is_33_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     String key = STRING_65_CHARS_LONG.substring(0, 33);
 
@@ -188,7 +197,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_key_is_2_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     verifyResponseAndDb(executeRequest("foo", "ab"), SOME_UUID, "foo", "ab", SOME_DATE);
@@ -196,7 +205,7 @@ public class CreateActionTest {
 
   @Test
   public void requests_succeeds_if_key_is_32_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     String key = STRING_65_CHARS_LONG.substring(0, 32);
@@ -206,28 +215,28 @@ public class CreateActionTest {
 
   @Test
   public void requests_fails_if_key_contains_non_ascii_chars_but_dash() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     requestFailsWithInvalidCharInKey("ab@");
   }
 
   @Test
   public void request_fails_if_key_starts_with_a_dash() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     requestFailsWithInvalidCharInKey("-ab");
   }
 
   @Test
   public void request_fails_if_key_ends_with_a_dash() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     requestFailsWithInvalidCharInKey("ab-");
   }
 
   @Test
   public void request_fails_if_key_contains_space() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     requestFailsWithInvalidCharInKey("a b");
   }
@@ -241,7 +250,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_key_is_specified_and_already_exists_in_DB() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     String key = "the-key";
     insertOrganization(key);
 
@@ -253,7 +262,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_key_computed_from_name_already_exists_in_DB() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     String key = STRING_65_CHARS_LONG.substring(0, 32);
     insertOrganization(key);
 
@@ -267,7 +276,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_description_url_and_avatar_are_not_specified() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     CreateWsResponse response = executeRequest("foo", "bar", null, null, null);
@@ -276,7 +285,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_description_url_and_avatar_are_specified() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     CreateWsResponse response = executeRequest("foo", "bar", "moo", "doo", "boo");
@@ -285,7 +294,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_to_generate_key_from_name_more_then_32_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     String name = STRING_65_CHARS_LONG.substring(0, 33);
@@ -296,7 +305,7 @@ public class CreateActionTest {
 
   @Test
   public void request_generates_key_ignoring_multiple_following_spaces() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
 
     String name = "ab   cd";
@@ -307,7 +316,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_description_is_257_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("description '" + STRING_257_CHARS_LONG + "' must be at most 256 chars long");
@@ -317,7 +326,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_description_is_256_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
     String description = STRING_257_CHARS_LONG.substring(0, 256);
 
@@ -327,7 +336,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_url_is_257_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("url '" + STRING_257_CHARS_LONG + "' must be at most 256 chars long");
@@ -337,7 +346,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_url_is_256_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
     String url = STRING_257_CHARS_LONG.substring(0, 256);
 
@@ -347,7 +356,7 @@ public class CreateActionTest {
 
   @Test
   public void request_fails_if_avatar_is_257_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("avatar '" + STRING_257_CHARS_LONG + "' must be at most 256 chars long");
@@ -357,7 +366,7 @@ public class CreateActionTest {
 
   @Test
   public void request_succeeds_if_avatar_is_256_chars_long() {
-    giveUserSystemAdminPermission();
+    makeUserRoot();
     mockForSuccessfulInsert(SOME_UUID, SOME_DATE);
     String avatar = STRING_257_CHARS_LONG.substring(0, 256);
 
@@ -365,8 +374,8 @@ public class CreateActionTest {
     verifyResponseAndDb(response, SOME_UUID, "foo", "bar", null, null, avatar, SOME_DATE);
   }
 
-  private void giveUserSystemAdminPermission() {
-    userSession.setGlobalPermissions(GlobalPermissions.SYSTEM_ADMIN);
+  private void makeUserRoot() {
+    userSession.login().setRoot();
   }
 
   private void mockForSuccessfulInsert(String uuid, long now) {
