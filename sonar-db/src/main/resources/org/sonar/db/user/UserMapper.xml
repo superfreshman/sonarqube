@@ -175,6 +175,7 @@
       is_root = #{root,jdbcType=BOOLEAN}
     where
       login = #{login,jdbcType=VARCHAR}
+      and active = ${_true}
   </update>
 
   <insert id="insert" parameterType="User" keyColumn="id" useGeneratedKeys="true" keyProperty="id">
