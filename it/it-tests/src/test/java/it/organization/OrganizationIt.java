@@ -22,16 +22,22 @@ package it.organization;
 import com.sonar.orchestrator.Orchestrator;
 import it.Category3Suite;
 import java.util.List;
+import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.sonarqube.ws.Organizations;
+import org.sonarqube.ws.client.HttpException;
 import org.sonarqube.ws.client.organization.CreateWsRequest;
 import org.sonarqube.ws.client.organization.OrganizationService;
 import org.sonarqube.ws.client.organization.SearchWsRequest;
 import org.sonarqube.ws.client.organization.UpdateWsRequest;
 import util.ItUtils;
+import util.user.UserRule;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class OrganizationIt {
   private static final String DEFAULT_ORGANIZATION_KEY = "default-organization";
@@ -43,9 +49,18 @@ public class OrganizationIt {
 
   @ClassRule
   public static Orchestrator orchestrator = Category3Suite.ORCHESTRATOR;
+  @Rule
+  public UserRule userRule = UserRule.from(orchestrator);
+  @Rule
+  public ExpectedException expectedException = ExpectedException.none();
 
   private OrganizationService anonymousOrganizationService = ItUtils.newWsClient(orchestrator).organizations();
   private OrganizationService adminOrganizationService = ItUtils.newAdminWsClient(orchestrator).organizations();
+
+  @Before
+  public void setUp() throws Exception {
+    userRule.resetUsers();
+  }
 
   @Test
   public void create_update_delete_an_organization() {
@@ -109,6 +124,35 @@ public class OrganizationIt {
       .getOrganization();
     assertThat(createdOrganization.getKey()).isEqualTo("foo-company-to-keyize");
     verifySingleSearchResult(createdOrganization, name, null, null, null);
+  }
+
+  @Test
+  public void create_fails_if_user_is_not_root() {
+    userRule.createUser("foo", "bar");
+
+    CreateWsRequest createWsRequest = new CreateWsRequest.Builder()
+      .setName("bla bla")
+      .build();
+    OrganizationService fooUserOrganizationService = ItUtils.newUserWsClient(orchestrator, "foo", "bar").organizations();
+
+    expect403HttpError(() -> fooUserOrganizationService.create(createWsRequest));
+
+    userRule.setRoot("foo");
+    assertThat(fooUserOrganizationService.create(createWsRequest).getOrganization().getKey()).isEqualTo("bla-bla");
+
+    // delete org, attempt recreate when no root anymore and ensure it can't anymore
+    fooUserOrganizationService.delete("bla-bla");
+    userRule.unsetRoot("foo");
+    expect403HttpError(() -> fooUserOrganizationService.create(createWsRequest));
+  }
+
+  private void expect403HttpError(Runnable runnable) {
+    try {
+      runnable.run();
+      fail("Ws call should have failed");
+    } catch (HttpException e) {
+      assertThat(e.code()).isEqualTo(403);
+    }
   }
 
   private void verifyNoExtraOrganization() {
